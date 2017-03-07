@@ -76,6 +76,13 @@ class FOSELMDetector(AnomalyDetector):
   def __init__(self, *args, **kwargs):
     super(FOSELMDetector, self).__init__(*args, **kwargs)
 
+
+    self.mean = 0.0
+    self.squareMean = 0.0
+    self.var = 0.0
+    self.windowSize = 1000
+    self.pastData = [0.0] * self.windowSize
+    self.inputCount = 0
     self.minVal = None
     self.maxVal = None
     self.anomalyLikelihood = None
@@ -96,7 +103,7 @@ class FOSELMDetector(AnomalyDetector):
     self.activationFunction = "sig"
     self.inputs = 100
     self.outputs = 1
-    self.numHiddenNeurons = 800
+    self.numHiddenNeurons = 23
     # input to hidden weights
     self.inputWeights = np.random.random((self.numHiddenNeurons, self.inputs))
     self.ORTH = True
@@ -108,7 +115,7 @@ class FOSELMDetector(AnomalyDetector):
     self.BN = True
     # auxiliary matrix used for sequential learning
     self.M = None
-    self.forgettingFactor = 0.9995
+    self.forgettingFactor = 0.915
 
     self.inputSequence = [0.0] * self.inputs
 
@@ -166,6 +173,34 @@ class FOSELMDetector(AnomalyDetector):
     self.inputSequence.append(newInput)
     self.inputSequence.pop(0)
 
+  def updatePastData(self, newInput):
+    self.inputCount = self.inputCount+1
+    if self.inputCount==1:
+      self.mean = self.mean + newInput / (self.inputCount)
+      self.squareMean = self.squareMean + newInput * newInput / self.inputCount
+      self.var = 0.0
+
+    elif self.inputCount< self.windowSize:
+      self.mean = self.mean + newInput / (self.inputCount) - self.pastData[0] / (self.inputCount)
+      self.squareMean = self.squareMean + newInput * newInput / self.inputCount - self.pastData[0] * self.pastData[
+        0] / self.inputCount
+      self.var = (self.squareMean - self.mean * self.mean / self.inputCount) / (self.inputCount - 1)
+    else :
+      self.mean = self.mean + newInput/(self.windowSize) - self.pastData[0]/(self.windowSize)
+      self.squareMean = self.squareMean + newInput*newInput/self.windowSize - self.pastData[0]*self.pastData[0]/self.windowSize
+      self.var = (self.squareMean - self.mean*self.mean/self.windowSize)/(self.windowSize-1)
+
+    self.pastData.append(newInput)
+    self.pastData.pop(0)
+
+  def normalize(self, input):
+
+    return (input-self.mean)/(self.var+0.00001)
+
+  def reconstruct(self, input):
+
+    return input*self.var + self.mean
+
   def getInputSequenceAsArray(self):
 
     #print self.inputSequence
@@ -186,11 +221,11 @@ class FOSELMDetector(AnomalyDetector):
     Ht = np.transpose(H)
 
     if RLS:
-
-      self.RLS_k = np.dot(np.dot(self.M,Ht),inv( self.forgettingFactor*np.eye(numSamples)+ np.dot(H,np.dot(self.M,Ht))))
-      self.RLS_e = targets - np.dot(H,self.beta)
-      self.beta = self.beta + np.dot(self.RLS_k,self.RLS_e)
-      self.M = 1/(self.forgettingFactor)*(self.M - np.dot(self.RLS_k,np.dot(H,self.M)))
+        self.RLS_e = targets - np.dot(H,self.beta)
+        self.RLS_k = np.dot(np.dot(self.M,Ht),inv( self.forgettingFactor*np.eye(numSamples)+ np.dot(H,np.dot(self.M,Ht))))
+        epsilon = self.RLS_e*()
+        self.beta = self.beta + np.dot(self.RLS_k,self.RLS_e)
+        self.M = 1/(self.forgettingFactor)*(self.M - np.dot(self.RLS_k,np.dot(H,self.M)))
     else:
 
       scale = 1 / (self.forgettingFactor)
@@ -217,8 +252,10 @@ class FOSELMDetector(AnomalyDetector):
     #print 'hello3'
     return prediction
 
-  def computeRawAnomaly(self, trueVal, predVal):
+  def computeRawAnomaly(self, trueVal, predVal,saturation=True):
     AbsolutePercentageError = np.abs(trueVal- predVal) / (np.abs(trueVal)+0.00001)
+    if saturation:
+      AbsolutePercentageError = max(1,AbsolutePercentageError)
     return AbsolutePercentageError
 
   def handleRecord(self, inputData):
@@ -227,13 +264,17 @@ class FOSELMDetector(AnomalyDetector):
     # Get the value
 
     value = inputData["value"]
+    self.updatePastData(value)
+
+    nValue = self.normalize(value)
+
     inputFeatures = self.getInputSequenceAsArray()
  #   print inputFeatures
-    predValue = self.predict(inputFeatures)
+    nPredValue = self.predict(inputFeatures)
 #    print np.array([[value]])
-    self.train(features=inputFeatures,targets=np.array([[value]]),RLS=True)
-    self.updateInputSequence(value)
-
+    self.train(features=inputFeatures,targets=np.array([[nValue]]),RLS=True)
+    self.updateInputSequence(nValue)
+    predValue = self.reconstruct(nPredValue)
     rawScore = self.computeRawAnomaly(trueVal=value,predVal=predValue)
     #print rawScore
     # Update min/max values and check if there is a spatial anomaly
@@ -264,3 +305,24 @@ class FOSELMDetector(AnomalyDetector):
 
 
     return (finalScore,)
+
+
+  def handleRecordForEnsenble(self, inputData):
+    finalScore = 0.0
+    # Get the value
+
+    value = inputData["value"]
+    self.updatePastData(value)
+
+    nValue = self.normalize(value)
+
+    inputFeatures = self.getInputSequenceAsArray()
+    #   print inputFeatures
+    nPredValue = self.predict(inputFeatures)
+    #    print np.array([[value]])
+
+    self.train(features=inputFeatures, targets=np.array([[nValue]]))
+    self.updateInputSequence(nValue)
+    predValue = self.reconstruct(nPredValue)
+
+    return predValue

@@ -32,7 +32,7 @@ from nab.labeler import CorpusLabel
 from nab.optimizer import optimizeThreshold
 from nab.scorer import scoreCorpus
 from nab.util import updateThresholds, updateFinalResults
-
+import traceback
 
 
 class Runner(object):
@@ -131,8 +131,11 @@ class Runner(object):
 
     # Using `map_async` instead of `map` so interrupts are properly handled.
     # See: http://stackoverflow.com/a/1408476
-    self.pool.map_async(detectDataSet, args).get(99999999)
-
+    try:
+      self.pool.map_async(detectDataSet, args).get(99999)
+    except:
+      traceback.print_exc()
+      raise
 
   def optimize(self, detectorNames):
     """Optimize the threshold for each combination of detector and profile.

@@ -15,9 +15,9 @@
         "standard": 54.11564970401293
     },
     "RELM": {
-        "reward_low_FN_rate": 59.5801731437069,
-        "reward_low_FP_rate": 50.14066707839655,
-        "standard": 55.74957006038794
+        "reward_low_FN_rate": 59.83420590456897,
+        "reward_low_FP_rate": 49.83681513568233,
+        "standard": 55.69958471892241
     },
     "contextOSE": {
         "reward_low_FN_rate": 73.18167250416667,

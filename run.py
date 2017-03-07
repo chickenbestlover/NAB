@@ -136,7 +136,7 @@ if __name__ == "__main__":
                     type=str,
                     default=["null", "numenta", "random", "skyline",
                              "bayesChangePt", "windowedGaussian", "expose",
-                             "relativeEntropy, FOSELM, RELM, EFOSELM, ERELM"],
+                             "relativeEntropy", "FOSELM", "RELM", "EFOSELM", "ERELM"],
                     help="Comma separated list of detector(s) to use, e.g. "
                          "null,numenta")
 
