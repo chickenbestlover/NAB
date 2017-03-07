@@ -130,7 +130,9 @@ class RELMDetector(AnomalyDetector):
     self.AE = True
     self.ORTH = True
     # bias of hidden units
-    self.bias = np.random.random((1, self.numHiddenNeurons)) * 2 - 1
+    #self.bias = np.random.random((1, self.numHiddenNeurons)) * 2 - 1
+    self.bias = np.zeros((1, self.numHiddenNeurons))
+
     # hidden to output layer connection
     self.beta = np.random.random((self.numHiddenNeurons, self.outputs))
 
@@ -161,8 +163,8 @@ class RELMDetector(AnomalyDetector):
 
     self.initializePhase(lamb=0.00001)
     
-    self.sigma = 1
-    self.minForget = 0.85
+    self.sigma = 0.01
+    self.minForget = 0.80
 
 
 
@@ -213,9 +215,7 @@ class RELMDetector(AnomalyDetector):
     """
 
 
-
-    self.bias = np.random.random((1, self.numHiddenNeurons)) * 2 - 1
-
+    self.bias = np.zeros((1, self.numHiddenNeurons))
 
     self.M = inv(lamb*np.eye(self.numHiddenNeurons))
     self.beta = np.zeros([self.numHiddenNeurons,self.outputs])

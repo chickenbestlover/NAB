@@ -60,14 +60,15 @@ def sigmoidActFunc(features, weights, bias):
   return H
 
 
-def linear_recurrent(features, inputW,hiddenW,hiddenA, bias):
+def linear_recurrent(features, inputW,hiddenW,hiddenA, bias, markovInput):
   (numSamples, numInputs) = features.shape
   (numHiddenNeuron, numInputs) = inputW.shape
-  V = np.dot(features, np.transpose(inputW)) + np.dot(hiddenA,hiddenW)
+  recurrentInput = np.dot(hiddenA,hiddenW)
+  V = np.dot(features, np.transpose(inputW)) + recurrentInput + markovInput
   for i in range(numHiddenNeuron):
     V[:, i] += bias[0, i]
 
-  return V
+  return V, recurrentInput
 
 def sigmoidAct_forRecurrent(features,inputW,hiddenW,hiddenA,bias):
   (numSamples, numInputs) = features.shape
@@ -161,9 +162,10 @@ class MRELMDetector(AnomalyDetector):
 
     self.initializePhase(lamb=0.00001)
     
-    self.sigma = 1
+    self.sigma = 0.1
     self.minForget = 0.85
-
+    self.recurrentInput = np.dot(self.initial_H, self.hiddenWeights)
+    self.RISequence=[self.recurrentInput] * self.inputs
 
 
   def batchNormalization(self, H, scaleFactor=1, biasFactor=0):
@@ -193,11 +195,15 @@ class MRELMDetector(AnomalyDetector):
 
       self.hiddenWeights = self.__calculateHiddenWeightsUsingAE(self.H)
 
-    V = linear_recurrent(features=features,
+    V,recurrentInput = linear_recurrent(features=features,
                          inputW=self.inputWeights,
                          hiddenW=self.hiddenWeights,
                          hiddenA=self.H,
-                         bias= self.bias)
+                         bias= self.bias,
+                         markovInput=self.RISequence[0])
+    self.recurrentInput=recurrentInput
+    self.RISequence.append(self.recurrentInput)
+    self.RISequence.pop(0)
     if self.BN:
       V = self.batchNormalization(V)
     self.H = sigmoidActFunc(V)
@@ -214,8 +220,9 @@ class MRELMDetector(AnomalyDetector):
 
 
 
-    self.bias = np.random.random((1, self.numHiddenNeurons)) * 2 - 1
+    #self.bias = np.random.random((1, self.numHiddenNeurons)) * 2 - 1
 
+    self.bias = np.zeros((1, self.numHiddenNeurons))
 
     self.M = inv(lamb*np.eye(self.numHiddenNeurons))
     self.beta = np.zeros([self.numHiddenNeurons,self.outputs])
@@ -245,6 +252,7 @@ class MRELMDetector(AnomalyDetector):
       if self.ORTH:
         self.hiddenWeights = orthogonalization(self.hiddenWeights)
 
+
   def reset(self):
     self.H = self.initial_H
 
@@ -272,6 +280,10 @@ class MRELMDetector(AnomalyDetector):
 
     self.pastData.append(newInput)
     self.pastData.pop(0)
+
+  def updateRISequence(self):
+    self.RISequence.append(self.recurrentInput)
+    self.RISequence.pop(0)
 
   def normalize(self, input):
 
