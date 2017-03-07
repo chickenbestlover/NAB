@@ -161,8 +161,8 @@ class RELMDetector(AnomalyDetector):
 
     self.initializePhase(lamb=0.00001)
     
-    self.sigma = 0.01
-    self.minForget = 0.8
+    self.sigma = 1
+    self.minForget = 0.85
 
 
 
@@ -305,6 +305,7 @@ class RELMDetector(AnomalyDetector):
     self.beta = self.beta + np.dot(self.RLS_k, self.RLS_e)
     self.forgettingFactor = 1 - (1 - np.dot(H,self.RLS_k))*pow(self.RLS_e,2)/self.sigma
     self.forgettingFactor= max(self.minForget,self.forgettingFactor)
+    #print "f=", self.forgettingFactor
     self.M = 1 / (self.forgettingFactor) * (self.M - np.dot(self.RLS_k, np.dot(H, self.M)))
 
 #    try:

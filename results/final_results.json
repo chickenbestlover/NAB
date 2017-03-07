@@ -10,14 +10,14 @@
         "standard": 48.45182590540087
     },
     "FOSELM": {
-        "reward_low_FN_rate": 57.20734555557472,
-        "reward_low_FP_rate": 49.63442797398276,
-        "standard": 54.11564970401293
+        "reward_low_FN_rate": 55.59261960775862,
+        "reward_low_FP_rate": 50.303639647369394,
+        "standard": 51.754942376857755
     },
     "RELM": {
-        "reward_low_FN_rate": 59.83420590456897,
-        "reward_low_FP_rate": 49.83681513568233,
-        "standard": 55.69958471892241
+        "reward_low_FN_rate": 57.15778792925287,
+        "reward_low_FP_rate": 51.73011196506896,
+        "standard": 54.702199135258624
     },
     "contextOSE": {
         "reward_low_FN_rate": 73.18167250416667,
@@ -45,9 +45,9 @@
         "standard": 0.0
     },
     "numenta": {
-        "reward_low_FN_rate": 74.43713440505746,
-        "reward_low_FP_rate": 60.87012754599138,
-        "standard": 70.27639126275862
+        "reward_low_FN_rate": 74.3202443095115,
+        "reward_low_FP_rate": 63.11684160219828,
+        "standard": 70.10105611943965
     },
     "numentaTM": {
         "reward_low_FN_rate": 69.18506822906035,

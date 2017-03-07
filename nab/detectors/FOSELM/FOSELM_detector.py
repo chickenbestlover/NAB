@@ -103,7 +103,7 @@ class FOSELMDetector(AnomalyDetector):
     self.activationFunction = "sig"
     self.inputs = 100
     self.outputs = 1
-    self.numHiddenNeurons = 23
+    self.numHiddenNeurons = 200
     # input to hidden weights
     self.inputWeights = np.random.random((self.numHiddenNeurons, self.inputs))
     self.ORTH = True
@@ -115,7 +115,7 @@ class FOSELMDetector(AnomalyDetector):
     self.BN = True
     # auxiliary matrix used for sequential learning
     self.M = None
-    self.forgettingFactor = 0.915
+    self.forgettingFactor = 0.99
 
     self.inputSequence = [0.0] * self.inputs
 

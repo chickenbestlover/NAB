@@ -136,7 +136,7 @@ if __name__ == "__main__":
                     type=str,
                     default=["null", "numenta", "random", "skyline",
                              "bayesChangePt", "windowedGaussian", "expose",
-                             "relativeEntropy", "FOSELM", "RELM", "EFOSELM", "ERELM"],
+                             "relativeEntropy", "FOSELM", "RELM", "EFOSELM", "ERELM","MRELM"],
                     help="Comma separated list of detector(s) to use, e.g. "
                          "null,numenta")
 
@@ -204,6 +204,10 @@ if __name__ == "__main__":
       from nab.detectors.RELM.RELM_detector import RELMDetector
   if "ERELM" in args.detectors:
       from nab.detectors.ERELM.ERELM_detector import ERELMDetector
+
+  if "MRELM" in args.detectors:
+      from nab.detectors.MRELM.MRELM_detector import MRELMDetector
+
   # To run expose detector, you must have sklearn version 0.16.1 installed.
   # Higher versions of sklearn may not be compatible with numpy version 1.9.2
   # required to run nupic.
