@@ -64,7 +64,9 @@ def main(args):
 
   runner.initialize()
 
+  
   if args.detect:
+
     detectorConstructors = getDetectorClassConstructors(args.detectors)
     runner.detect(detectorConstructors)
 
@@ -134,7 +136,7 @@ if __name__ == "__main__":
                     type=str,
                     default=["null", "numenta", "random", "skyline",
                              "bayesChangePt", "windowedGaussian", "expose",
-                             "relativeEntropy"],
+                             "relativeEntropy, FOSELM, RELM, EFOSELM, ERELM"],
                     help="Comma separated list of detector(s) to use, e.g. "
                          "null,numenta")
 
@@ -194,7 +196,14 @@ if __name__ == "__main__":
   if "relativeEntropy" in args.detectors:
     from nab.detectors.relative_entropy.relative_entropy_detector import (
       RelativeEntropyDetector)
-
+  if "FOSELM" in args.detectors:
+	from nab.detectors.FOSELM.FOSELM_detector import FOSELMDetector
+  if "EFOSELM" in args.detectors:
+      from nab.detectors.EFOSELM.EFOSELM_detector import EFOSELMDetector
+  if "RELM" in args.detectors:
+      from nab.detectors.RELM.RELM_detector import RELMDetector
+  if "ERELM" in args.detectors:
+      from nab.detectors.ERELM.ERELM_detector import ERELMDetector
   # To run expose detector, you must have sklearn version 0.16.1 installed.
   # Higher versions of sklearn may not be compatible with numpy version 1.9.2
   # required to run nupic.
