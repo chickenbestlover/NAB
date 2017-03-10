@@ -14,10 +14,15 @@
         "reward_low_FP_rate": 50.303639647369394,
         "standard": 51.754942376857755
     },
+    "MRELM": {
+        "reward_low_FN_rate": 57.512277234511494,
+        "reward_low_FP_rate": 51.06386125236207,
+        "standard": 54.08335853535776
+    },
     "RELM": {
-        "reward_low_FN_rate": 56.0289142295977,
-        "reward_low_FP_rate": 49.53709084664655,
-        "standard": 50.85371617196552
+        "reward_low_FN_rate": 55.88285647824712,
+        "reward_low_FP_rate": 49.62243059107759,
+        "standard": 52.67005631710776
     },
     "contextOSE": {
         "reward_low_FN_rate": 73.18167250416667,

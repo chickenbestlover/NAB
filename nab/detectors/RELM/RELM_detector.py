@@ -117,7 +117,7 @@ class RELMDetector(AnomalyDetector):
     self.activationFunction = "sig"
     self.inputs = 100
     self.outputs = 1
-    self.numHiddenNeurons = 25
+    self.numHiddenNeurons = 50
 
     # input to hidden weights
     self.inputWeights  = np.random.random((self.numHiddenNeurons, self.inputs))
@@ -163,10 +163,19 @@ class RELMDetector(AnomalyDetector):
 
     self.initializePhase(lamb=0.00001)
     
-    self.sigma = 0.01
-    self.minForget = 0.80
+    self.sigma = 1
+    self.minForget = 0.90
 
+    # for VFF_RLS
+    # parameters are set as recommended by Bodal et al.
+    self.VFF_RLS=True
+    self.gamma = pow(10, -3)
+    self.upsilon = pow(10, -6)
+    self.rho = 0.99
 
+  def getAdditionalHeaders(self):
+    """Returns a list of strings."""
+    return ["predValue"]
 
   def batchNormalization(self, H, scaleFactor=1, biasFactor=0):
 
@@ -300,13 +309,39 @@ class RELMDetector(AnomalyDetector):
     H = self.calculateHiddenLayerActivation(features)
     Ht = np.transpose(H)
 
-    self.RLS_k = np.dot(self.M, Ht)/(self.forgettingFactor + np.dot(H, np.dot(self.M, Ht)))
-    self.RLS_e = targets - np.dot(H, self.beta)
-    self.beta = self.beta + np.dot(self.RLS_k, self.RLS_e)
-    self.forgettingFactor = 1 - (1 - np.dot(H,self.RLS_k))*pow(self.RLS_e,2)/self.sigma
-    self.forgettingFactor= max(self.minForget,self.forgettingFactor)
-    #print "f=", self.forgettingFactor
-    self.M = 1 / (self.forgettingFactor) * (self.M - np.dot(self.RLS_k, np.dot(H, self.M)))
+    if self.VFF_RLS:
+      # suppose numSamples = 1
+
+      # calculate output weight self.beta
+      output = np.dot(H, self.beta)
+      self.e = targets - output
+      self.zeta = np.dot(H, np.dot(self.M, Ht))
+      self.beta = self.beta + np.dot(np.dot(self.M, Ht), self.e) / (1 + self.zeta)
+
+      def getAdditionalHeaders(self):
+        """Returns a list of strings."""
+        return ["raw_score"]
+      # calculate covariance matrix self.M
+      if self.zeta != 0:
+        self.epsilon = self.forgettingFactor - (1 - self.forgettingFactor) / self.zeta
+        self.M = self.M - np.dot(np.dot(self.M, Ht), np.dot(H, self.M)) / (1 / self.epsilon + self.zeta)
+
+      # calculate forgetting factor self.forgettingFactor
+      self.gamma = self.forgettingFactor * (self.gamma + pow(self.e, 2) / (1 + self.zeta))
+      self.eta = pow(self.e, 2) / self.gamma
+      self.upsilon = self.forgettingFactor * (self.upsilon + 1)
+      self.forgettingFactor = 1 / (1 + (1 + self.rho) * (
+        np.log(1 + self.zeta) + (((self.upsilon + 1) * self.eta / (1 + self.zeta + self.eta)) - 1) * (
+          self.zeta / (1 + self.zeta))))
+
+    else:
+      self.RLS_k = np.dot(self.M, Ht)/(self.forgettingFactor + np.dot(H, np.dot(self.M, Ht)))
+      self.RLS_e = targets - np.dot(H, self.beta)
+      self.beta = self.beta + np.dot(self.RLS_k, self.RLS_e)
+      self.forgettingFactor = 1 - (1 - np.dot(H,self.RLS_k))*pow(self.RLS_e,2)/self.sigma
+      self.forgettingFactor= max(self.minForget,self.forgettingFactor)
+      #print "f=", self.forgettingFactor
+      self.M = 1 / (self.forgettingFactor) * (self.M - np.dot(self.RLS_k, np.dot(H, self.M)))
 
 #    try:
 #      scale = 1/(self.forgettingFactor)
@@ -351,13 +386,12 @@ class RELMDetector(AnomalyDetector):
     nValue = self.normalize(value)
 
     inputFeatures = self.getInputSequenceAsArray()
- #   print inputFeatures
     nPredValue = self.predict(inputFeatures)
-#    print np.array([[value]])
-
-    self.train(features=inputFeatures,targets=np.array([[nValue]]))
+    nPrevValue =  self.inputSequence[self.inputs-1]
+    self.train(features=inputFeatures,targets=np.array([[nValue-nPrevValue]]))
     self.updateInputSequence(nValue)
-    predValue = self.reconstruct(nPredValue)
+    predValue = self.reconstruct(nPredValue+nValue)
+    predValue = predValue[0,0]
     rawScore = self.computeRawAnomaly(trueVal=value,predVal=predValue, saturation=True)
     #print rawScore
     # Update min/max values and check if there is a spatial anomaly
@@ -387,7 +421,7 @@ class RELMDetector(AnomalyDetector):
       finalScore = 1.0
 
 
-    return (finalScore,)
+    return (finalScore, predValue)
 
   def handleRecordForEnsenble(self, inputData):
 
