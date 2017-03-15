@@ -426,7 +426,7 @@ class RELMDetector(AnomalyDetector):
 
 
 
-    return (finalScore, predValue)
+    return (finalScore, self.predValue)
 
   def handleRecordForEnsenble(self, inputData):
 
