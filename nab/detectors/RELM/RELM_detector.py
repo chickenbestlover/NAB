@@ -117,7 +117,7 @@ class RELMDetector(AnomalyDetector):
     self.activationFunction = "sig"
     self.inputs = 100
     self.outputs = 1
-    self.numHiddenNeurons = 50
+    self.numHiddenNeurons = 15
     self.predValue=0
 
     # input to hidden weights
