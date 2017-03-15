@@ -386,10 +386,10 @@ class RELMDetector(AnomalyDetector):
     nValue = self.normalize(value)
 
     inputFeatures = self.getInputSequenceAsArray()
-    nPredValue = self.predict(inputFeatures)
     nPrevValue = self.inputSequence[self.inputs-1]
     self.train(features=inputFeatures,targets=np.array([[nValue-nPrevValue]]))
     self.updateInputSequence(nValue)
+    nPredValue = self.predict(inputFeatures)
     predValue = self.reconstruct(nPredValue+nValue)
     predValue = predValue[0,0]
     rawScore = self.computeRawAnomaly(trueVal=value,predVal=predValue, saturation=True)
