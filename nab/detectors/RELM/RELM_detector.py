@@ -118,6 +118,7 @@ class RELMDetector(AnomalyDetector):
     self.inputs = 100
     self.outputs = 1
     self.numHiddenNeurons = 50
+    self.predValue=0
 
     # input to hidden weights
     self.inputWeights  = np.random.random((self.numHiddenNeurons, self.inputs))
@@ -382,18 +383,11 @@ class RELMDetector(AnomalyDetector):
 
     value = inputData["value"]
     self.updatePastData(value)
+    rawScore=0
+    if self.inputCount > self.inputs:
+      rawScore = self.computeRawAnomaly(trueVal=value, predVal=self.predValue, saturation=True)
 
-    nValue = self.normalize(value)
-
-    inputFeatures = self.getInputSequenceAsArray()
-    nPrevValue = self.inputSequence[self.inputs-1]
-    self.train(features=inputFeatures,targets=np.array([[nValue-nPrevValue]]))
-    self.updateInputSequence(nValue)
-    nPredValue = self.predict(inputFeatures)
-    predValue = self.reconstruct(nPredValue+nValue)
-    predValue = predValue[0,0]
-    rawScore = self.computeRawAnomaly(trueVal=value,predVal=predValue, saturation=True)
-    #print rawScore
+    # print rawScore
     # Update min/max values and check if there is a spatial anomaly
     spatialAnomaly = False
     if self.minVal != self.maxVal:
@@ -413,12 +407,23 @@ class RELMDetector(AnomalyDetector):
         inputData["value"], rawScore, inputData["timestamp"])
       logScore = self.anomalyLikelihood.computeLogLikelihood(anomalyScore)
       finalScore = logScore
-      #print finalScore
+      # print finalScore
     else:
       finalScore = rawScore
 
     if spatialAnomaly:
       finalScore = 1.0
+
+    # Training & Prediction
+    nValue = self.normalize(value)
+    nInputFeatures = self.getInputSequenceAsArray()
+    nPrevValue = self.inputSequence[self.inputs-1]
+    self.train(features=nInputFeatures,targets=np.array([[nValue-nPrevValue]]))
+    self.updateInputSequence(nValue)
+    nPredValue = self.predict(nInputFeatures)
+    predValue = self.reconstruct(nPredValue+nValue)
+    self.predValue = predValue[0,0]
+
 
 
     return (finalScore, predValue)
