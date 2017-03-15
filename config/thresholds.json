@@ -57,16 +57,16 @@
     },
     "RELM": {
         "reward_low_FN_rate": {
-            "score": -39.47127655098469,
-            "threshold": 0.7953125000000002
+            "score": -37.690537199705346,
+            "threshold": 0.9937507629394536
         },
         "reward_low_FP_rate": {
-            "score": -1.6650435623098487,
-            "threshold": 0.9507812500000005
+            "score": -0.5743160341134006,
+            "threshold": 0.9937507629394536
         },
         "standard": {
-            "score": 5.528723449015308,
-            "threshold": 0.7953125000000002
+            "score": 7.309462800294652,
+            "threshold": 0.9937507629394536
         }
     },
     "bayesChangePt": {

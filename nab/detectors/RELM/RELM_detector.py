@@ -385,7 +385,9 @@ class RELMDetector(AnomalyDetector):
     self.updatePastData(value)
     rawScore=0
     if self.inputCount > self.inputs:
-      rawScore = self.computeRawAnomaly(trueVal=value, predVal=self.predValue, saturation=True)
+      nPredValue= self.normalize(self.predValue)
+      nValue=self.normalize(value)
+      rawScore = self.computeRawAnomaly(trueVal=nValue, predVal=nPredValue, saturation=True)
 
     # print rawScore
     # Update min/max values and check if there is a spatial anomaly
