@@ -41,7 +41,7 @@ def optimizeThreshold(args):
     objFunction=objectiveFunction,
     args=args,
     initialGuess=0.5,
-    tolerance=.0000001)
+    tolerance=.001)
 
   print "Optimizer found a max score of {} with anomaly threshold {}.".format(
     optimizedScore, optimizedThreshold)
@@ -78,7 +78,7 @@ def twiddle(objFunction, args, initialGuess=0.5, tolerance=0.00001,
   """
   pastCalls = {}
   x = initialGuess
-  delta = 0.1
+  delta = 0.15
   bestScore = objFunction(x, args)
 
   pastCalls[x] = bestScore
