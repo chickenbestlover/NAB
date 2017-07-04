@@ -90,7 +90,7 @@ to `False`.
 
 
 | Detector      |Standard Profile | Reward Low FP | Reward Low FN |
-|---------------|---------|------------------|---------------|---------------|
+|---------------|---------|------------------|---------------|
 | Numenta HTM*   | 70.1             | 63.1       | 74.3          |
 | [HTM Java](https://github.com/numenta/NAB/blob/master/nab/detectors/htmjava) | 65.5 | 53.2 | 70.4 |
 | [nab-comportex](https://github.com/floybix/nab-comportex)&dagger; | 64.6             | 58.8       | 69.6          |
@@ -130,18 +130,31 @@ Use the Github links provided in the right sidebar.
     cd NAB
     (sudo) pip install -r requirements.txt
 
-This will install the additional required modules pandas and simplejson.
+This will install the required modules.
 
 ##### Install NAB
 
 Recommended:
 
-	python setup.py install --user
+	pip install . --user
 
-Or if you are actively working on the code and are familiar with manual
+
+> Note: If NuPIC is not already installed, the version specified in 
+`NAB/requirements.txt` will be installed. If NuPIC is already installed, it
+ will not be re-installed. 
+ 
+ 
+If you want to manage dependency versions yourself, you can skip dependencies 
+with:
+    
+    pip install . --user --no-deps 
+
+
+If you are actively working on the code and are familiar with manual
 PYTHONPATH setup:
 
-	python setup.py develop --prefix=/some/other/path/
+	pip install -e . --install-option="--prefix=/some/other/path/"
+
 
 ### Usage
 
