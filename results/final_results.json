@@ -14,15 +14,20 @@
         "reward_low_FP_rate": 50.303639647369394,
         "standard": 51.754942376857755
     },
+    "LSTM": {
+        "reward_low_FN_rate": 0.0,
+        "reward_low_FP_rate": 0.0,
+        "standard": 0.0
+    },
     "MRELM": {
         "reward_low_FN_rate": 57.512277234511494,
         "reward_low_FP_rate": 51.06386125236207,
         "standard": 54.08335853535776
     },
     "RELM": {
-        "reward_low_FN_rate": 60.369058906867814,
-        "reward_low_FP_rate": 52.22786890702155,
-        "standard": 57.36393318788793
+        "reward_low_FN_rate": 56.887683627729885,
+        "reward_low_FP_rate": 52.94357943463362,
+        "standard": 54.728077165732756
     },
     "contextOSE": {
         "reward_low_FN_rate": 73.18167250416667,
@@ -51,7 +56,7 @@
     },
     "numenta": {
         "reward_low_FN_rate": 74.3202443095115,
-        "reward_low_FP_rate": 63.11684160219828,
+        "reward_low_FP_rate": 63.02201401599138,
         "standard": 70.10105611943965
     },
     "numentaTM": {

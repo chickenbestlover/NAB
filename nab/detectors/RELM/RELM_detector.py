@@ -121,7 +121,7 @@ class RELMDetector(AnomalyDetector):
     self.outputs = 1
     self.numHiddenNeurons = 15
     self.predValue=0
-
+    self.prevPredValue=0
     # input to hidden weights
     self.inputWeights  = np.random.random((self.numHiddenNeurons, self.inputs))
     # hidden layer to hidden layer weights
@@ -391,12 +391,13 @@ class RELMDetector(AnomalyDetector):
 
     value = inputData["value"]
     self.updatePastData(value)
+    self.prevPredValue = self.predValue
     rawScore=0
     if self.inputCount > self.inputs:
 
-      nPredValue= self.normalize(self.predValue)
+      nPrevPredValue= self.normalize(self.prevPredValue)
       nValue=self.normalize(value)
-      rawScore = self.computeRawAnomaly(trueVal=nValue, predVal=nPredValue, saturation=True)
+      rawScore = self.computeRawAnomaly(trueVal=nValue, predVal=nPrevPredValue, saturation=True)
 
       if self.useLikelihood:
         # Compute log(anomaly likelihood)
@@ -428,16 +429,33 @@ class RELMDetector(AnomalyDetector):
     # Training & Prediction
     nValue = self.normalize(value)
     nInputFeatures = self.getInputSequenceAsArray()
-    nPrevValue = self.inputSequence[self.inputs-1]
-    self.train(features=nInputFeatures,targets=np.array([[nValue-nPrevValue]]))
-    self.updateInputSequence(nValue)
-    nPredValue = self.predict(nInputFeatures)
-    predValue = self.reconstruct(nPredValue+nValue)
-    self.predValue = predValue[0,0]
+    nPrevValue = self.inputSequence[-1]
+    if self.inputCount<2850:
+      self.train(features=nInputFeatures,targets=np.array([[nValue-nPrevValue]]))
+
+      #self.train(features=nInputFeatures,targets=np.array([[nValue]]))
+
+      self.updateInputSequence(nValue)
+      nInputFeatures = self.getInputSequenceAsArray()
+      nPredValue = self.predict(nInputFeatures)
+      predValue = self.reconstruct(nPredValue+nValue)
+      #predValue = self.reconstruct(nPredValue)
+
+      self.predValue = predValue[0,0]
+    else:
+      #self.train(features=nInputFeatures, targets=np.array([[nValue - nPrevValue]]))
+
+      self.updateInputSequence(self.normalize(self.prevPredValue))
+      nInputFeatures = self.getInputSequenceAsArray()
+      nPredValue = self.predict(nInputFeatures)
+
+      predValue = self.reconstruct(nPredValue + self.normalize(self.prevPredValue))
+      #predValue = self.reconstruct(nPredValue)
+
+      self.predValue = predValue[0, 0]
 
 
-
-    return (finalScore, self.predValue)
+    return (finalScore, self.prevPredValue)
 
   def handleRecordForEnsenble(self, inputData):
 

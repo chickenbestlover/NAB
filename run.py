@@ -208,6 +208,9 @@ if __name__ == "__main__":
   if "MRELM" in args.detectors:
       from nab.detectors.MRELM.MRELM_detector import MRELMDetector
 
+  if "LSTM" in args.detectors:
+      from nab.detectors.LSTM.LSTM_detector import LSTMDetector
+
   # To run expose detector, you must have sklearn version 0.16.1 installed.
   # Higher versions of sklearn may not be compatible with numpy version 1.9.2
   # required to run nupic.
