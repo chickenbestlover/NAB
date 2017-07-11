@@ -108,14 +108,12 @@ class RELMDetector(AnomalyDetector):
     self.useLikelihood = True
     if self.useLikelihood:
       # Initialize the anomaly likelihood object
-      numentaLearningPeriod = math.floor(self.probationaryPeriod / 2.0)
-      print 'numentaLeareningPeeriod=',numentaLearningPeriod
+      numentaLearningPeriod = int(math.floor(self.probationaryPeriod / 2.0))
       self.anomalyLikelihood = anomaly_likelihood.AnomalyLikelihood(
-        learningPeriod=numentaLearningPeriod,
-        estimationSamples=self.probationaryPeriod - numentaLearningPeriod,
+        claLearningPeriod=numentaLearningPeriod,
+        estimationSamples=self.probationaryPeriod-numentaLearningPeriod,
         reestimationPeriod=100
       )
-
     self.activationFunction = "sig"
     self.inputs = 100
     self.outputs = 1
@@ -430,6 +428,18 @@ class RELMDetector(AnomalyDetector):
     nValue = self.normalize(value)
     nInputFeatures = self.getInputSequenceAsArray()
     nPrevValue = self.inputSequence[-1]
+    self.train(features=nInputFeatures, targets=np.array([[nValue - nPrevValue]]))
+
+    # self.train(features=nInputFeatures,targets=np.array([[nValue]]))
+
+    self.updateInputSequence(nValue)
+    nInputFeatures = self.getInputSequenceAsArray()
+    nPredValue = self.predict(nInputFeatures)
+    predValue = self.reconstruct(nPredValue + nValue)
+    # predValue = self.reconstruct(nPredValue)
+
+    self.predValue = predValue[0, 0]
+    '''
     if self.inputCount<2850:
       self.train(features=nInputFeatures,targets=np.array([[nValue-nPrevValue]]))
 
@@ -453,7 +463,7 @@ class RELMDetector(AnomalyDetector):
       #predValue = self.reconstruct(nPredValue)
 
       self.predValue = predValue[0, 0]
-
+    '''
 
     return (finalScore, self.prevPredValue)
 

@@ -2,10 +2,24 @@ import torch.nn as nn
 import torch
 from torch.autograd import Variable
 
+class LayerNorm(nn.Module):
+
+    def __init__(self, features, eps=1e-6):
+        super(LayerNorm,self).__init__()
+        self.gamma = nn.Parameter(torch.ones(1, features), requires_grad=True)
+        self.beta = nn.Parameter(torch.zeros(1, features), requires_grad=True)
+        self.eps = eps
+
+    def forward(self, x):
+        mean = x.mean(-1).expand_as(x)
+        std = x.std(-1).expand_as(x)
+        return self.gamma.expand_as(x) * (x - mean) / (std + self.eps) + self.beta.expand_as(x)
+
+
 class RNNModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
-    def __init__(self, rnn_type='LSTM', input_size=1, embed_size=200, hidden_size=200, nlayers=2, dropout=0.5, tie_weights=False):
+    def __init__(self, rnn_type='LSTM', input_size=1, embed_size=200, hidden_size=200, nlayers=2, dropout=0.5, tie_weights=False,layerNorm=True,resLearn = True):
         super(RNNModel, self).__init__()
         self.drop = nn.Dropout(dropout)
         self.encoder = nn.Linear(input_size, embed_size)
@@ -29,13 +43,17 @@ class RNNModel(nn.Module):
         if tie_weights:
             if hidden_size != embed_size:
                 raise ValueError('When using the tied flag, hidden_size must be equal to embed_size')
-            self.decoder.weight = self.encoder.weight
+            self.decoder.weight.data = self.encoder.weight.data.t()
 
         self.init_weights()
 
         self.rnn_type = rnn_type
         self.hidden_size = hidden_size
         self.nlayers = nlayers
+        self.performLayerNorm = layerNorm
+        self.norm1 = LayerNorm(self.hidden_size)
+        self.norm2 = LayerNorm(self.hidden_size)
+        self.resLearn = resLearn
 
     def init_weights(self):
         initrange = 0.1
@@ -45,13 +63,30 @@ class RNNModel(nn.Module):
 
     def forward(self, input, hidden):
         #emb = self.drop(self.encoder(input))
+        #print input.contiguous().view(input.size(0) * input.size(1), 1).size()
         emb = self.drop(self.encoder(input.contiguous().view(input.size(0)*input.size(1),1)))
-        output, hidden = self.rnn(emb.view(input.size(1), input.size(0), self.hidden_size), hidden)
+        x = emb.clone()
+        if self.performLayerNorm:
+            #print emb.size()
+            emb = self.norm1.forward(emb)
+            #print emb.size()
+            #print '.........'
+        #print emb.size()
+        #print emb.view(input.size(0), input.size(1), self.hidden_size).size()
+        output, hidden = self.rnn(emb.view(input.size(0), input.size(1), self.hidden_size), hidden)
+        #print output.size()
+        #print hidden[0].size()
         output = self.drop(output)
-
-        decoded = self.decoder(output.view(output.size(0)*output.size(1), output.size(2)))
+        output = output.view(output.size(0)*output.size(1), output.size(2))
+        if self.resLearn:
+            output = output + x
+        if self.performLayerNorm:
+            #print output.size()
+            output = self.norm2.forward(output)
+            #print output.size()
+        decoded = self.decoder(output)
         #decoded = decoded + x
-        return decoded.view(output.size(0), output.size(1), decoded.size(1)), hidden
+        return decoded.view(input.size(0), input.size(1), decoded.size(1)), hidden
 
     def init_hidden(self, bsz):
         weight = next(self.parameters()).data

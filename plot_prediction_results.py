@@ -2,14 +2,15 @@ from matplotlib import pyplot as plt
 
 detectorName='LSTM'
 
-#pwd = './results/'+detectorName+'/realKnownCause/'+detectorName+'_nyc_taxi.csv'
+pwd = './results/'+detectorName+'/realKnownCause/'+detectorName+'_nyc_taxi.csv'
 #pwd = './results/'+detectorName+'/realKnownCause/'+detectorName+'_machine_temperature_system_failure.csv'
 #pwd = './results/'+detectorName+'/realKnownCause/'+detectorName+'_ambient_temperature_system_failure.csv'
 #pwd = './results/'+detectorName+'/artificialWithAnomaly/'+detectorName+'_art_daily_jumpsup.csv'
 #pwd = './results/'+detectorName+'/artificialWithAnomaly/'+detectorName+'_art_daily_flatmiddle.csv'
 #pwd = './results/'+detectorName+'/artificialNoAnomaly/'+detectorName+'_art_daily_perfect_square_wave.csv'
+#pwd = './results/'+detectorName+'/realTraffic/'+detectorName+'_speed_7578.csv'
 
-pwd = './results/'+detectorName+'/artificialWithAnomaly/'+detectorName+'_art_load_balancer_spikes.csv'
+#pwd = './results/'+detectorName+'/artificialWithAnomaly/'+detectorName+'_art_load_balancer_spikes.csv'
 
 times = []
 values = []
@@ -30,8 +31,8 @@ with open(pwd,'r') as file:
 plt.figure()
 plt.subplot(2,1,1)
 plt.plot(values,'.r')
-plt.plot(predValues,'*b')
+plt.plot(predValues,'.b')
 plt.subplot(2,1,2)
 plt.plot(labels,'.r')
-plt.plot(anomaly_scores,'*b')
+plt.plot(anomaly_scores,'b')
 plt.show()

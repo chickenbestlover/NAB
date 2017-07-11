@@ -81,7 +81,7 @@ class NumentaDetector(AnomalyDetector):
 
     # Retrieve the anomaly score and write it to a file
     rawScore = result.inferences["anomalyScore"]
-
+    print rawScore
     # Update min/max values and check if there is a spatial anomaly
     spatialAnomaly = False
     if self.minVal != self.maxVal:
