@@ -40,6 +40,8 @@ def getDetectorClassConstructors(detectors):
   detectorConstructors = {
   d : globals()[detectorNameToClass(d)] for d in detectors}
 
+  #print detectorConstructors['LSTM']()
+
   return detectorConstructors
 
 

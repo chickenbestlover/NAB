@@ -117,6 +117,7 @@ class AnomalyDetector(object):
         sys.stdout.flush()
 
     ans = pandas.DataFrame(rows, columns=headers)
+    self.initialize()
     return ans
 
 
