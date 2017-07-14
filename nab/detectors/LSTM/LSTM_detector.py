@@ -50,16 +50,22 @@ class LSTMDetector(AnomalyDetector):
         reestimationPeriod=100
       )
     self.startDetection = True
-    self.inputSequenceLen_forBPTT = 35
+    self.inputSequenceLen_forBPTT = 50
+    self.predictionStep = self.inputSequenceLen_forBPTT
 
-    self.predValue=0
-    self.prevPredValue=0
+    self.predValues= [0.0] * self.predictionStep
+    self.prevPredValues = [0.0] * self.predictionStep
+
+
+    self.totalSequence = [0.0] * (self.inputSequenceLen_forBPTT + self.predictionStep)
     self.inputSequence = [0.0] * self.inputSequenceLen_forBPTT
+    self.targetSequence = [0.0] * self.predictionStep
+
     self.cuda = True
-    self.model = RNNModel(rnn_type='GRU',input_size=1,
-                          embed_size=30,hidden_size=30,
-                          nlayers=2,dropout=0.0,tie_weights=False)
-    self.batch_size=10
+    self.model = RNNModel(rnn_type='GRU',input_size=1,output_size=self.predictionStep,
+                          embed_size=50,hidden_size=50,
+                          nlayers=2,dropout=0.1,layerNorm=True, resLearn=True)
+    self.batch_size=20
     if self.cuda:
       self.model.cuda()
     self.hidden_for_train = self.model.init_hidden(bsz=self.batch_size)
@@ -69,73 +75,24 @@ class LSTMDetector(AnomalyDetector):
     self.criterion = nn.MSELoss()
     #self.criterion = nn.L1Loss()
     #self.criterion = nn.SmoothL1Loss()
-    self.clip = 0.5
-    self.optimizer = optim.Adam(self.model.parameters(),lr=0.0001)
-    #self.optimizer = optim.RMSprop(self.model.parameters(), lr=0.01)
 
-  def initialize(self):
-    del self.model
-    del self.hidden_for_testSeq
-    del self.hidden_for_test
-    del self.hidden_for_train
-    del self.criterion
-    del self.optimizer
 
-    random.seed(6)
-    self.mean = 0.0
-    self.squareMean = 0.0
-    self.var = 0.0
-    self.windowSize = 1000
-    self.pastData = [0.0] * self.windowSize
-    self.inputCount = 0
-    self.minVal = None
-    self.maxVal = None
-    self.anomalyLikelihood = None
-    # Set this to False if you want to get results based on raw scores
-    # without using AnomalyLikelihood. This will give worse results, but
-    # useful for checking the efficacy of AnomalyLikelihood. You will need
-    # to re-optimize the thresholds when running with this setting.
-    self.useLikelihood = True
-    if self.useLikelihood:
-      # Initialize the anomaly likelihood object
-      numentaLearningPeriod = int(math.floor(self.probationaryPeriod / 2.0))
-      self.anomalyLikelihood = anomaly_likelihood.AnomalyLikelihood(
-        claLearningPeriod=numentaLearningPeriod,
-        estimationSamples=self.probationaryPeriod - numentaLearningPeriod,
-        reestimationPeriod=100
-      )
-    self.startDetection = True
-    self.inputSequenceLen_forBPTT = 35
-
-    self.predValue = 0
-    self.prevPredValue = 0
-    self.inputSequence = [0.0] * self.inputSequenceLen_forBPTT
-    self.cuda = True
-    self.model = RNNModel(rnn_type='GRU', input_size=1,
-                          embed_size=30, hidden_size=30,
-                          nlayers=2, dropout=0.0, tie_weights=False)
-    self.batch_size = 10
-    if self.cuda:
-      self.model.cuda()
-    self.hidden_for_train = self.model.init_hidden(bsz=self.batch_size)
-    self.hidden_for_test = self.model.init_hidden(bsz=1)
-    self.hidden_for_testSeq = self.model.init_hidden(bsz=1)
-
-    self.criterion = nn.MSELoss()
-    # self.criterion = nn.L1Loss()
-    # self.criterion = nn.SmoothL1Loss()
-    self.clip = 0.5
-    self.optimizer = optim.Adam(self.model.parameters(), lr=0.0001)
-    # self.optimizer = optim.RMSprop(self.model.parameters(), lr=0.01)
+    self.clip = 1.2
+    #self.optimizer = optim.Adam(self.model.parameters(),lr=0.0002)
+    #self.optimizer = optim.ASGD(self.model.parameters(),lr=0.01) # very bad
+    self.optimizer = optim.RMSprop(self.model.parameters(), lr=0.0002 )
 
   def getAdditionalHeaders(self):
     """Returns a list of strings."""
     return ["predValue"]
 
-  def updateInputSequence(self, newInput):
+  def updateLearningSequences(self, newInput):
 
-    self.inputSequence.append(newInput)
-    self.inputSequence.pop(0)
+    self.totalSequence.append(newInput)
+    self.totalSequence.pop(0)
+
+    self.inputSequence = self.totalSequence[:self.inputSequenceLen_forBPTT]
+    self.targetSequence = self.totalSequence[self.inputSequenceLen_forBPTT:]
 
   def updatePastData(self, newInput):
     self.inputCount = self.inputCount+1
@@ -170,13 +127,48 @@ class LSTMDetector(AnomalyDetector):
     nInputSeq = torch.FloatTensor(self.inputSequence).view(self.inputSequenceLen_forBPTT,1,1)
     nInputSeqBatch = nInputSeq
     for i in range(1,self.batch_size):
-      nInputSeqBatch = torch.cat((nInputSeqBatch,nInputSeq+0.5*(i/self.batch_size)*torch.randn(nInputSeq.size())),1)
+      nInputSeqBatch = torch.cat((nInputSeqBatch,nInputSeq+0.7*(i/self.batch_size)*torch.randn(nInputSeq.size())),1)
     if self.cuda:
       nInputSeqBatch = nInputSeqBatch.cuda()
     #print nInputSeqBatch
     #raw_input('hello')
 
     return nInputSeqBatch
+
+  def getTargetSequenceBatchAsTensor(self):
+    target = self.inputSequence
+    nTargetSeqBatch = torch.FloatTensor(self.inputSequenceLen_forBPTT,self.batch_size,self.predictionStep).zero_()
+    if self.cuda:
+      nTargetSeqBatch =nTargetSeqBatch.cuda()
+
+    for i in range(self.inputSequenceLen_forBPTT):
+
+      target.append(self.targetSequence[i])
+      target.pop(0)
+      nTarget = torch.FloatTensor(target).view(1,1,self.predictionStep)
+      nTargetBatch = nTarget
+      for j in range(1,self.batch_size):
+        nTargetBatch = torch.cat((nTargetBatch,nTarget+0.1*(j/self.batch_size)*torch.randn(nTarget.size())),1)
+        #nTargetBatch = torch.cat((nTargetBatch, nTarget ), 1)
+      if self.cuda:
+        nTargetBatch = nTargetBatch.cuda()
+
+      nTargetSeqBatch[i] = nTargetBatch[0]
+
+
+
+    return nTargetSeqBatch
+
+  def getTestSequenceAsTensor(self):
+
+    nTestSeq = torch.FloatTensor(self.targetSequence).view(self.predictionStep, 1, 1)
+    if self.cuda:
+      nTestSeq = nTestSeq.cuda()
+
+    #print nTestSeq
+    return nTestSeq
+
+
 
   def train(self, nInputSeqBatch_forBPTT, nTargetSeqBatch_forBPTT):
     self.model.train()
@@ -201,16 +193,21 @@ class LSTMDetector(AnomalyDetector):
     nOutputSeqBatch_forBPTT, hidden_for_train = self.model.forward(nInputSeqBatch_forBPTT[1:], hidden_for_train)
     # print nOutputSeqBatch_forBPTT.size()
     nOutputSeqBatch_forBPTT = torch.cat((nOutputSeq,nOutputSeqBatch_forBPTT),0)
-    loss = self.criterion(nOutputSeqBatch_forBPTT.view(-1, 1), nTargetSeqBatch_forBPTT)
+
+    #print nOutputSeqBatch_forBPTT[0][0][0]
+    #print nInputSeqBatch_forBPTT
+    #print nTargetSeqBatch_forBPTT
+
+    loss = self.criterion(nOutputSeqBatch_forBPTT.view(-1, 1), nTargetSeqBatch_forBPTT.view(-1,1))
     loss.backward()
     torch.nn.utils.clip_grad_norm(self.model.parameters(), self.clip)
     self.optimizer.step()
     # print loss.cpu().data[0]
     totalLoss = loss.cpu().data[0]
-    del loss
-    del nInputSeqBatch_forBPTT
-    del nOutputSeqBatch_forBPTT
-    del hidden_for_train
+    #del loss
+    #del nInputSeqBatch_forBPTT
+    #del nOutputSeqBatch_forBPTT
+    #del hidden_for_train
 
     return totalLoss
 
@@ -223,17 +220,18 @@ class LSTMDetector(AnomalyDetector):
   def predict_fromSeq(self, nSeq):
     self.model.eval()
     self.model.init_hidden(bsz=1)
-    _, self.hidden_for_testSeq = self.model.forward(nSeq[0].unsqueeze(0),self.hidden_for_testSeq)
+    nOutput, self.hidden_for_testSeq = self.model.forward(nSeq[0].unsqueeze(0),self.hidden_for_testSeq)
     hidden_for_testSeq = self.hidden_for_testSeq
     nOutputSeq, hidden_for_testSeq = self.model.forward(nSeq[1:], hidden_for_testSeq)
 
-    output = nOutputSeq.cpu().data[-1][0][0]
+    nOutputSeq = torch.cat((nOutput,nOutputSeq),0)
+    #output = nOutputSeq.cpu().data[0][0][-1]
+    #print output
+    #del hidden_for_testSeq
+    #print nOutputSeq
+    #del _
 
-    del hidden_for_testSeq
-    del nOutputSeq
-    del _
-
-    return output
+    return nOutputSeq
 
   def repackage_hidden(self,hidden):
     """Wraps hidden states in new Variables, to detach them from their history."""
@@ -261,16 +259,19 @@ class LSTMDetector(AnomalyDetector):
     # Get the value
     value = inputData["value"] # value: float
     self.updatePastData(value) # re-calcucate mean, var for past 1000 samples, and update self.inputCount
-    self.prevPredValue=self.predValue
-    nPrevPredValue = self.normalize(self.prevPredValue)
+    self.prevPredValues=self.predValues
+
+#    print 'prevPredValue = {:6.4f}   |   trueValue = {:6.4f}'.format(self.prevPredValues[-1],value)
+    nPrevPredValues = [self.normalize(prevPredValue) for prevPredValue in self.prevPredValues]
     nValue = self.normalize(value)
+    self.updateLearningSequences(nValue)
     '''
     Step1: Anomaly detection using previous prediction at (t_now - 1) and current input value at (t_now)
     '''
-
     finalScore=0.0
+
     if self.inputCount>100:
-      rawScore = self.computeRawAnomaly(trueVal=nValue, predVal=nPrevPredValue, saturation=True)
+      rawScore = self.computeRawAnomaly(trueVal=nValue, predVal=nPrevPredValues[0], saturation=True)
 
       if self.useLikelihood:
         # Compute log(anomaly likelihood)
@@ -301,23 +302,38 @@ class LSTMDetector(AnomalyDetector):
     Step2: Network training
     '''
 
-    #if self.inputCount>500:
+
     # nInputSequenceBatch_forBPTT: FloatTensor(seq_len,batch_size,input_size)
     nInputSeqBatch_forBPTT = Variable(self.getInputSequenceBatchAsTensor())
     #if self.inputCount<50:
     #  print self.inputCount, inputData['value'], nValue, nInputSeqBatch_forBPTT[:,0,0]
 
-    self.updateInputSequence(nValue)
-    nTargetSeqBatch_forBPTT = Variable(self.getInputSequenceBatchAsTensor())
+
+
+    #nTargetSeqBatch_forBPTT = Variable(self.getInputSequenceBatchAsTensor())
+    nTargetSeqBatch_forBPTT = Variable(self.getTargetSequenceBatchAsTensor())
+
     loss = self.train_fromSeq(nInputSeqBatch_forBPTT,nTargetSeqBatch_forBPTT)
     #print loss
     #print Variable(nTargetSeqBatch_forBPTT)[-1][0].view(1,1,1)
+    nTargetSeqBatch_forBPTT.volatile=True
     #nPredValue = self.predict(nTargetSeqBatch_forBPTT[-1][0].view(1,1,1))
-    nPredValue = self.predict_fromSeq(nTargetSeqBatch_forBPTT[:,0].unsqueeze(1))
-    self.predValue = self.reconstruct(nPredValue)
+    nTestSeq = Variable(self.getTestSequenceAsTensor(),volatile=True)
 
-    del nInputSeqBatch_forBPTT
-    del nTargetSeqBatch_forBPTT
 
-    return (finalScore, self.prevPredValue)
+
+    #nPredValue = self.predict_fromSeq(nTargetSeqBatch_forBPTT[:,0].unsqueeze(1))
+    nOutputSeq = self.predict_fromSeq(nTestSeq)
+    nPredValues= [ nOutputSeq.cpu().data[i][0][self.predictionStep-1-i] for i in range(self.predictionStep) ]
+
+
+    #print nPredValues
+
+    self.predValues = [self.reconstruct(nPredValue) for nPredValue in nPredValues]
+
+    #del nInputSeqBatch_forBPTT
+    #del nTargetSeqBatch_forBPTT
+
+    return (finalScore, np.mean(self.prevPredValues))
+    #return (finalScore, self.prevPredValues[-1])
 

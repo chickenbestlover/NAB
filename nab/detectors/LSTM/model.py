@@ -19,8 +19,9 @@ class LayerNorm(nn.Module):
 class RNNModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
-    def __init__(self, rnn_type='LSTM', input_size=1, embed_size=200, hidden_size=200, nlayers=2, dropout=0.5, tie_weights=False,layerNorm=True,resLearn = True):
+    def __init__(self, rnn_type='LSTM', input_size=1, output_size=1,embed_size=200, hidden_size=200, nlayers=2, dropout=0.5, layerNorm=True,resLearn = True):
         super(RNNModel, self).__init__()
+
         self.drop = nn.Dropout(dropout)
         self.encoder = nn.Linear(input_size, embed_size)
         if rnn_type in ['LSTM', 'GRU']:
@@ -32,18 +33,8 @@ class RNNModel(nn.Module):
                 raise ValueError( """An invalid option for `--model` was supplied,
                                  options are ['LSTM', 'GRU', 'RNN_TANH' or 'RNN_RELU']""")
             self.rnn = nn.RNN(embed_size, hidden_size, nlayers, nonlinearity=nonlinearity, dropout=dropout)
-        self.decoder = nn.Linear(hidden_size, input_size)
+        self.decoder = nn.Linear(hidden_size, output_size)
 
-        # Optionally tie weights as in:
-        # "Using the Output Embedding to Improve Language Models" (Press & Wolf 2016)
-        # https://arxiv.org/abs/1608.05859
-        # and
-        # "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
-        # https://arxiv.org/abs/1611.01462
-        if tie_weights:
-            if hidden_size != embed_size:
-                raise ValueError('When using the tied flag, hidden_size must be equal to embed_size')
-            self.decoder.weight.data = self.encoder.weight.data.t()
 
         self.init_weights()
 
@@ -58,12 +49,14 @@ class RNNModel(nn.Module):
     def init_weights(self):
         initrange = 0.1
         self.encoder.weight.data.uniform_(-initrange, initrange)
-        self.decoder.bias.data.fill_(0)
         self.decoder.weight.data.uniform_(-initrange, initrange)
+        #self.encoder.bias.data.fill_(0)
+        #self.decoder.bias.data.fill_(0)
 
     def forward(self, input, hidden):
         #emb = self.drop(self.encoder(input))
         #print input.contiguous().view(input.size(0) * input.size(1), 1).size()
+
         emb = self.drop(self.encoder(input.contiguous().view(input.size(0)*input.size(1),1)))
         x = emb.clone()
         if self.performLayerNorm:
@@ -78,12 +71,13 @@ class RNNModel(nn.Module):
         #print hidden[0].size()
         output = self.drop(output)
         output = output.view(output.size(0)*output.size(1), output.size(2))
-        if self.resLearn:
-            output = output + x
+
         if self.performLayerNorm:
             #print output.size()
             output = self.norm2.forward(output)
             #print output.size()
+        if self.resLearn:
+            output = output + x
         decoded = self.decoder(output)
         #decoded = decoded + x
         return decoded.view(input.size(0), input.size(1), decoded.size(1)), hidden

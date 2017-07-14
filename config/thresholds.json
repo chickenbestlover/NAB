@@ -43,16 +43,16 @@
     },
     "LSTM": {
         "reward_low_FN_rate": {
-            "score": -31.796915850064025,
-            "threshold": 0.575
+            "score": -36.626646561467645,
+            "threshold": 0.7999999999999996
         },
         "reward_low_FP_rate": {
-            "score": 7.319926792864695,
-            "threshold": 0.575
+            "score": 5.453318702367054,
+            "threshold": 0.7999999999999996
         },
         "standard": {
-            "score": 12.20308414993597,
-            "threshold": 0.575
+            "score": 9.373353438532355,
+            "threshold": 0.7999999999999996
         }
     },
     "MRELM": {

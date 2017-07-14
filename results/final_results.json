@@ -15,9 +15,9 @@
         "standard": 51.754942376857755
     },
     "LSTM": {
-        "reward_low_FN_rate": 57.529621882155176,
-        "reward_low_FP_rate": 53.15514085899138,
-        "standard": 55.25995006461207
+        "reward_low_FN_rate": 56.14176822945403,
+        "reward_low_FP_rate": 52.350568406193965,
+        "standard": 54.040238551090525
     },
     "MRELM": {
         "reward_low_FN_rate": 57.512277234511494,

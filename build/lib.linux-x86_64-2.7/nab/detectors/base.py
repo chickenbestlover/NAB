@@ -140,6 +140,7 @@ def detectDataSet(args):
 
   results = detectorInstance.run()
 
+  del detectorInstance
   # label=1 for relaxed windows, 0 otherwise
   results["label"] = labels
 
