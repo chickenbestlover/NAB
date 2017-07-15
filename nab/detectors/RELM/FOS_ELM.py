@@ -57,7 +57,7 @@ def sigmoidActFunc(V):
 
 
 class FOSELM(object):
-  def __init__(self, inputs, outputs, numHiddenNeurons, activationFunction, BN=False,forgettingFactor=0.999, ORTH = True):
+  def __init__(self, inputs, outputs, numHiddenNeurons, activationFunction, LN=False, forgettingFactor=0.999, ORTH = True):
 
     self.activationFunction = activationFunction
     self.inputs = inputs
@@ -72,13 +72,13 @@ class FOSELM(object):
     self.bias = np.random.random((1, self.numHiddenNeurons)) * 2 - 1
     # hidden to output layer connection
     self.beta = np.random.random((self.numHiddenNeurons, self.outputs))
-    self.BN = BN
+    self.LN = LN
     # auxiliary matrix used for sequential learning
     self.M = None
 
     self.forgettingFactor = forgettingFactor
 
-  def batchNormalization(self, H, scaleFactor=1, biasFactor=0):
+  def layerNormalization(self, H, scaleFactor=1, biasFactor=0):
 
     H_normalized = (H - H.mean()) / (np.sqrt(H.var() + 0.0001))
     H_normalized = scaleFactor * H_normalized + biasFactor
@@ -92,8 +92,8 @@ class FOSELM(object):
     :return: activation level (numSamples, numHiddenNeurons)
     """
     V = linear(features, self.inputWeights,self.bias)
-    if self.BN:
-      V = self.batchNormalization(V)
+    if self.LN:
+      V = self.layerNormalization(V)
     H = sigmoidActFunc(V)
 
     return H

@@ -95,7 +95,7 @@ class FOSELMDetector(AnomalyDetector):
       # Initialize the anomaly likelihood object
       numentaLearningPeriod = math.floor(self.probationaryPeriod / 2.0)
       self.anomalyLikelihood = anomaly_likelihood.AnomalyLikelihood(
-        learningPeriod=numentaLearningPeriod,
+        claLearningPeriod=numentaLearningPeriod,
         estimationSamples=self.probationaryPeriod - numentaLearningPeriod,
         reestimationPeriod=100
       )
@@ -115,11 +115,15 @@ class FOSELMDetector(AnomalyDetector):
     self.BN = True
     # auxiliary matrix used for sequential learning
     self.M = None
-    self.forgettingFactor = 0.99
+    self.forgettingFactor = 0.995
 
     self.inputSequence = [0.0] * self.inputs
 
     self.initializePhase(lamb=0.00001)
+
+  def getAdditionalHeaders(self):
+    """Returns a list of strings."""
+    return ["predValue"]
 
   def batchNormalization(self, H, scaleFactor=1, biasFactor=0):
 
@@ -272,7 +276,7 @@ class FOSELMDetector(AnomalyDetector):
  #   print inputFeatures
     nPredValue = self.predict(inputFeatures)
 #    print np.array([[value]])
-    self.train(features=inputFeatures,targets=np.array([[nValue]]),RLS=True)
+    self.train(features=inputFeatures,targets=np.array([[nValue]]),RLS=False)
     self.updateInputSequence(nValue)
     predValue = self.reconstruct(nPredValue)
     rawScore = self.computeRawAnomaly(trueVal=value,predVal=predValue)
@@ -303,8 +307,9 @@ class FOSELMDetector(AnomalyDetector):
     if spatialAnomaly:
       finalScore = 1.0
 
+    print predValue, predValue[0,0]
 
-    return (finalScore,)
+    return (finalScore,predValue[0,0])
 
 
   def handleRecordForEnsenble(self, inputData):

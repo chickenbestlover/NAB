@@ -1,6 +1,6 @@
 from matplotlib import pyplot as plt
 
-detectorName='LSTM'
+detectorName='ELM_PYTORCH'
 
 pwd = './results/'+detectorName+'/realKnownCause/'+detectorName+'_nyc_taxi.csv'
 #pwd = './results/'+detectorName+'/realKnownCause/'+detectorName+'_machine_temperature_system_failure.csv'

@@ -148,7 +148,7 @@ class RELMDetector(AnomalyDetector):
                             outputs = self.inputs,
                             numHiddenNeurons = self.numHiddenNeurons,
                             activationFunction = self.activationFunction,
-                            BN = True,
+                            LN= True,
                             forgettingFactor=0.9995,
                             ORTH = self.ORTH
                             )
@@ -157,7 +157,7 @@ class RELMDetector(AnomalyDetector):
                              outputs = self.numHiddenNeurons,
                              numHiddenNeurons = self.numHiddenNeurons,
                              activationFunction=self.activationFunction,
-                             BN = True,
+                             LN= True,
                              forgettingFactor=0.9995,
                              ORTH = self.ORTH
                              )
@@ -319,9 +319,6 @@ class RELMDetector(AnomalyDetector):
       self.zeta = np.dot(H, np.dot(self.M, Ht))
       self.beta = self.beta + np.dot(np.dot(self.M, Ht), self.e) / (1 + self.zeta)
 
-      def getAdditionalHeaders(self):
-        """Returns a list of strings."""
-        return ["raw_score"]
       # calculate covariance matrix self.M
       if self.zeta != 0:
         self.epsilon = self.forgettingFactor - (1 - self.forgettingFactor) / self.zeta
@@ -439,31 +436,7 @@ class RELMDetector(AnomalyDetector):
     # predValue = self.reconstruct(nPredValue)
 
     self.predValue = predValue[0, 0]
-    '''
-    if self.inputCount<2850:
-      self.train(features=nInputFeatures,targets=np.array([[nValue-nPrevValue]]))
 
-      #self.train(features=nInputFeatures,targets=np.array([[nValue]]))
-
-      self.updateInputSequence(nValue)
-      nInputFeatures = self.getInputSequenceAsArray()
-      nPredValue = self.predict(nInputFeatures)
-      predValue = self.reconstruct(nPredValue+nValue)
-      #predValue = self.reconstruct(nPredValue)
-
-      self.predValue = predValue[0,0]
-    else:
-      #self.train(features=nInputFeatures, targets=np.array([[nValue - nPrevValue]]))
-
-      self.updateInputSequence(self.normalize(self.prevPredValue))
-      nInputFeatures = self.getInputSequenceAsArray()
-      nPredValue = self.predict(nInputFeatures)
-
-      predValue = self.reconstruct(nPredValue + self.normalize(self.prevPredValue))
-      #predValue = self.reconstruct(nPredValue)
-
-      self.predValue = predValue[0, 0]
-    '''
 
     return (finalScore, self.prevPredValue)
 
