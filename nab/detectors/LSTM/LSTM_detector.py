@@ -49,8 +49,8 @@ class LSTMDetector(AnomalyDetector):
         estimationSamples=self.probationaryPeriod-numentaLearningPeriod,
         reestimationPeriod=100
       )
-    self.startDetection = True
-    self.inputSequenceLen_forBPTT = 50
+
+    self.inputSequenceLen_forBPTT = 2
     self.predictionStep = self.inputSequenceLen_forBPTT
 
     self.predValues= [0.0] * self.predictionStep
@@ -61,11 +61,13 @@ class LSTMDetector(AnomalyDetector):
     self.inputSequence = [0.0] * self.inputSequenceLen_forBPTT
     self.targetSequence = [0.0] * self.predictionStep
 
+    self.pastTestOutputSequences = [0.0]*self.predictionStep
+
     self.cuda = True
     self.model = RNNModel(rnn_type='GRU',input_size=1,output_size=self.predictionStep,
-                          embed_size=50,hidden_size=50,
-                          nlayers=2,dropout=0.1,layerNorm=True, resLearn=True)
-    self.batch_size=20
+                          embed_size=100,hidden_size=100,
+                          nlayers=1,dropout=0.0,layerNorm=True, resLearn=True)
+    self.batch_size=1
     if self.cuda:
       self.model.cuda()
     self.hidden_for_train = self.model.init_hidden(bsz=self.batch_size)
@@ -78,13 +80,13 @@ class LSTMDetector(AnomalyDetector):
 
 
     self.clip = 1.2
-    #self.optimizer = optim.Adam(self.model.parameters(),lr=0.0002)
+    self.optimizer = optim.Adam(self.model.parameters(),lr=0.0001)
     #self.optimizer = optim.ASGD(self.model.parameters(),lr=0.01) # very bad
-    self.optimizer = optim.RMSprop(self.model.parameters(), lr=0.0002 )
+    #self.optimizer = optim.RMSprop(self.model.parameters(), lr=0.0001 )
 
   def getAdditionalHeaders(self):
     """Returns a list of strings."""
-    return ["predValue"]
+    return ["predValueFirst","predValueLast"]
 
   def updateLearningSequences(self, newInput):
 
@@ -168,6 +170,9 @@ class LSTMDetector(AnomalyDetector):
     #print nTestSeq
     return nTestSeq
 
+  def updatePastTestOutputSequences(self, nOutputSeq):
+    self.pastTestOutputSequences.append(nOutputSeq)
+    return self.pastTestOutputSequences.pop(0)
 
 
   def train(self, nInputSeqBatch_forBPTT, nTargetSeqBatch_forBPTT):
@@ -313,8 +318,10 @@ class LSTMDetector(AnomalyDetector):
     #nTargetSeqBatch_forBPTT = Variable(self.getInputSequenceBatchAsTensor())
     nTargetSeqBatch_forBPTT = Variable(self.getTargetSequenceBatchAsTensor())
 
-    loss = self.train_fromSeq(nInputSeqBatch_forBPTT,nTargetSeqBatch_forBPTT)
-    #print loss
+    trainLoss = self.train_fromSeq(nInputSeqBatch_forBPTT,nTargetSeqBatch_forBPTT)
+
+    #print "train MSE loss = {:6.6f}".format(trainLoss)
+
     #print Variable(nTargetSeqBatch_forBPTT)[-1][0].view(1,1,1)
     nTargetSeqBatch_forBPTT.volatile=True
     #nPredValue = self.predict(nTargetSeqBatch_forBPTT[-1][0].view(1,1,1))
@@ -324,6 +331,12 @@ class LSTMDetector(AnomalyDetector):
 
     #nPredValue = self.predict_fromSeq(nTargetSeqBatch_forBPTT[:,0].unsqueeze(1))
     nOutputSeq = self.predict_fromSeq(nTestSeq)
+    #print nOutputSeq
+    nPastOutputSeq = self.updatePastTestOutputSequences(nOutputSeq)
+    #print nPastOutputSeq
+    if self.inputCount > self.predictionStep:
+      testLoss = self.criterion(nTargetSeqBatch_forBPTT,nPastOutputSeq)
+      #print "test MSE loss  = {:6.6f}".format(testLoss.cpu().data[0])
     nPredValues= [ nOutputSeq.cpu().data[i][0][self.predictionStep-1-i] for i in range(self.predictionStep) ]
 
 
@@ -334,6 +347,6 @@ class LSTMDetector(AnomalyDetector):
     #del nInputSeqBatch_forBPTT
     #del nTargetSeqBatch_forBPTT
 
-    return (finalScore, np.mean(self.prevPredValues))
-    #return (finalScore, self.prevPredValues[-1])
+    #return (finalScore, np.mean(self.prevPredValues))
+    return (finalScore, self.prevPredValues[0], self.prevPredValues[-1])
 
