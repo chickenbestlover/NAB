@@ -13,6 +13,20 @@
             "threshold": 0.9063476562500005
         }
     },
+    "ELM_PYTORCH": {
+        "reward_low_FN_rate": {
+            "score": 5.772573742706486,
+            "threshold": 0.5
+        },
+        "reward_low_FP_rate": {
+            "score": 8.450892733540034,
+            "threshold": 0.5749999999999997
+        },
+        "standard": {
+            "score": 27.979330991060934,
+            "threshold": 0.575
+        }
+    },
     "ERELM": {
         "reward_low_FN_rate": {
             "score": -43.26222194614037,

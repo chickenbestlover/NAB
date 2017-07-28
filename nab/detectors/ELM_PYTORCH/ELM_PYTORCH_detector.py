@@ -28,11 +28,12 @@ class ELM_PYTORCHDetector(AnomalyDetector):
   def __init__(self, *args, **kwargs):
     super(ELM_PYTORCHDetector, self).__init__(*args, **kwargs)
     random.seed(6)
+    self.cuda = True
     self.mean = 0.0
     self.squareMean = 0.0
-    self.var = 0.0
+    self.std = 0.0
     self.windowSize = 1000
-    self.pastData = [0.0] * self.windowSize
+    self.pastData = [0.0]
     self.inputCount = 0
     self.minVal = None
     self.maxVal = None
@@ -51,11 +52,14 @@ class ELM_PYTORCHDetector(AnomalyDetector):
         reestimationPeriod=100
       )
 
-    self.inputSequenceWindowLen = 20
+    self.inputSequenceWindowLen = 30
     self.predictionStep = self.inputSequenceWindowLen
 
     self.predValues= [0.0] * self.predictionStep
     self.prevPredValues = [0.0] * self.predictionStep
+    self.predictionErrorsInWindow = torch.FloatTensor(1,self.predictionStep).zero_()
+    if self.cuda:
+      self.predictionErrorsInWindow = self.predictionErrorsInWindow.cuda()
 
 
     self.totalSequence = [0.0] * (self.inputSequenceWindowLen + self.predictionStep)
@@ -64,12 +68,12 @@ class ELM_PYTORCHDetector(AnomalyDetector):
 
     self.pastTestOutputSequences = [0.0]*self.predictionStep
 
-    self.cuda = True
+
     self.input_size = self.inputSequenceWindowLen
-    self.hidden_size = 100
+    self.hidden_size = 200
     self.output_size = self.predictionStep
     self.model = ELMModel(input_size=self.input_size,output_size=self.output_size,
-                          hidden_size=self.hidden_size,layerNorm=True)
+                          hidden_size=self.hidden_size,layerNorm=True, forgettingFactor=1)
 
     self.batch_size=1
     if self.cuda:
@@ -92,31 +96,22 @@ class ELM_PYTORCHDetector(AnomalyDetector):
 
   def updatePastData(self, newInput):
     self.inputCount = self.inputCount+1
-    if self.inputCount==1:
-      self.mean = self.mean + newInput / (self.inputCount)
-      self.squareMean = self.squareMean + newInput * newInput / self.inputCount
-      self.var = 0.0
-
-    elif self.inputCount< self.windowSize:
-      self.mean = self.mean + newInput / (self.inputCount) - self.pastData[0] / (self.inputCount)
-      self.squareMean = self.squareMean + newInput * newInput / self.inputCount - self.pastData[0] * self.pastData[
-        0] / self.inputCount
-      self.var = (self.squareMean - self.mean * self.mean / self.inputCount) / (self.inputCount - 1)
-    else :
-      self.mean = self.mean + newInput/(self.windowSize) - self.pastData[0]/(self.windowSize)
-      self.squareMean = self.squareMean + newInput*newInput/self.windowSize - self.pastData[0]*self.pastData[0]/self.windowSize
-      self.var = (self.squareMean - self.mean*self.mean/self.windowSize)/(self.windowSize-1)
-
     self.pastData.append(newInput)
-    self.pastData.pop(0)
+    if len(self.pastData)>self.windowSize:
+      self.pastData.pop(0)
+
+    self.mean = np.mean(self.pastData)
+    self.std = np.std(self.pastData)
+    #self.std =   torch.var(torch.FloatTensor(self.pastData))
+
 
   def normalize(self, input):
 
-    return (input-self.mean)/(self.var+0.00001)
+    return (input-self.mean)/(self.std + 0.00001)
 
   def reconstruct(self, input):
 
-    return input*self.var + self.mean
+    return input*self.std + self.mean
 
   def getInputSequenceBatchAsTensor(self):
 
@@ -152,6 +147,21 @@ class ELM_PYTORCHDetector(AnomalyDetector):
     self.pastTestOutputSequences.append(nOutputSeq)
     return self.pastTestOutputSequences.pop(0)
 
+  def updatePredictionErrors(self,nPredictionErrors):
+    if self.inputCount<self.windowSize:
+      self.predictionErrorsInWindow = torch.cat((self.predictionErrorsInWindow,nPredictionErrors),0)
+    else:
+      self.predictionErrorsInWindow = torch.cat((self.predictionErrorsInWindow[1:],nPredictionErrors),0)
+
+
+  def calculateCov(self,data):
+
+    data = data.t()
+    mean_data = data.mean(1)
+    xm = data.sub(mean_data.expand_as(data))
+    cov = xm.mm(xm.t())
+    cov = cov/(data.size(1))
+    return cov
 
   def train_firstBatch(self, nInputSeqBatch, nTargetSeqBatch):
     nHiddenOutBatch= self.model.forwardToHidden(nInputSeqBatch)
@@ -196,17 +206,42 @@ class ELM_PYTORCHDetector(AnomalyDetector):
     '''
     Step1: Anomaly detection using previous prediction at (t_now - 1) and current input value at (t_now)
     '''
-    finalScore=0.0
+    nPredictions = [0.0]*self.predictionStep
+    nPredictionErrors = [0.0]*self.predictionStep
+    #print self.inputCount
 
-    if self.inputCount>100:
-      rawScore = self.computeRawAnomaly(trueVal=nValue, predVal=nPrevPredValues[0], saturation=True)
+    if self.inputCount > self.predictionStep:
+
+      nPredictions = [self.pastTestOutputSequences[i].cpu().data[0][-1-i] for i in range(self.predictionStep)]
+      nPredictionErrors = [ nPrediction - nValue for nPrediction in nPredictions]
+      nPredictionErrors = torch.FloatTensor(nPredictionErrors).view(1, len(nPredictionErrors))
+      if self.cuda:
+        nPredictionErrors=nPredictionErrors.cuda()
+      if len(self.predictionErrorsInWindow) > self.predictionStep:
+        multivariateGaussMean = self.predictionErrorsInWindow.mean(0)
+        multivariateGaussCov = self.calculateCov(self.predictionErrorsInWindow)
+        determinant = np.linalg.det(multivariateGaussCov.cpu().numpy())
+        #0#0000000d00ob[0][0]
+
+      self.updatePredictionErrors(nPredictionErrors)
+      #print self.predictionErrorsInWindow
+      #print multivariateGaussCov.size()
+      #print nPredictionsErrors
+
+    finalScore=0.0
+    if self.inputCount>self.hidden_size:
+      rawScore = self.computeRawAnomaly(trueVal=nValue, predVal=nPredictions[-1], saturation=True)
 
       if self.useLikelihood:
         # Compute log(anomaly likelihood)
         anomalyScore = self.anomalyLikelihood.anomalyProbability(
-          inputData["value"], rawScore, inputData["timestamp"])
+         inputData["value"], abs(nPredictionErrors.cpu()[0].mean()), inputData["timestamp"])
+   #       inputData["value"], rawScore, inputData["timestamp"])
+
         logScore = self.anomalyLikelihood.computeLogLikelihood(anomalyScore)
         finalScore = logScore
+        if self.inputCount<self.hidden_size+100:
+          finalScore=0.0
         # print finalScore
       else:
         finalScore = rawScore
@@ -226,15 +261,15 @@ class ELM_PYTORCHDetector(AnomalyDetector):
       if spatialAnomaly:
         finalScore = 1.0
 
+
+
+
     '''
     Step2: Network training
     '''
-
-
-    # nInputSequenceBatch: FloatTensor(batch_size,input_size)
+    # nInputSeqBatch: FloatTensor(batch_size,input_size)
     nInputSeqBatch = Variable(self.getInputSequenceBatchAsTensor(),volatile=True)
     nTargetSeqBatch = Variable(self.getTargetSequenceBatchAsTensor(),volatile=True)
-
 
     if self.inputCount < self.hidden_size:
       pass
@@ -258,11 +293,16 @@ class ELM_PYTORCHDetector(AnomalyDetector):
 
     nOutputSeq = self.predict(nTestSeq)
 
+
+
     nPastOutputSeq = self.updatePastTestOutputSequences(nOutputSeq)
     #print nPastOutputSeq
+    nPastPred=0.0
     if self.inputCount > self.predictionStep:
-      testLoss = self.criterion(nTargetSeqBatch,nPastOutputSeq)
+      testLoss = self.criterion(nTargetSeqBatch[0].squeeze(0),nPastOutputSeq)
       #print "test MSE loss  = {:6.6f}".format(testLoss.cpu().data[0])
+      nPastPred = self.reconstruct(nPastOutputSeq.cpu().data[0][-1])
+      #print pastPred
     nPredValues= [ nOutputSeq.cpu().data[0][i] for i in range(self.predictionStep) ]
 
 
@@ -274,5 +314,5 @@ class ELM_PYTORCHDetector(AnomalyDetector):
     #del nTargetSeqBatch
 
     #return (finalScore, np.mean(self.prevPredValues))
-    return (finalScore, self.prevPredValues[0], self.prevPredValues[-1])
+    return (finalScore, self.prevPredValues[0], 0.0)
 

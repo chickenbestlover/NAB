@@ -4,6 +4,11 @@
         "reward_low_FP_rate": 48.8161863214181,
         "standard": 51.47056480154742
     },
+    "ELM": {
+        "PYTORCH_reward_low_FN_rate": 68.32545222491667,
+        "PYTORCH_reward_low_FP_rate": 53.642626178250005,
+        "PYTORCH_standard": 62.060056461681036
+    },
     "ERELM": {
         "reward_low_FN_rate": 51.55409083347701,
         "reward_low_FP_rate": 45.301693655301726,

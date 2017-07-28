@@ -79,6 +79,7 @@ def twiddle(objFunction, args, initialGuess=0.5, tolerance=0.00001,
   pastCalls = {}
   x = initialGuess
   delta = 0.15
+  #delta = 0.30
   bestScore = objFunction(x, args)
 
   pastCalls[x] = bestScore

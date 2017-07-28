@@ -1,10 +1,17 @@
 from matplotlib import pyplot as plt
 
 detectorName='ELM_PYTORCH'
+#detectorName='numenta'
 
-pwd = './results/'+detectorName+'/realKnownCause/'+detectorName+'_nyc_taxi.csv'
+#pwd = './results/'+detectorName+'/realKnownCause/'+detectorName+'_nyc_taxi.csv'
+
+
 #pwd = './results/'+detectorName+'/realKnownCause/'+detectorName+'_machine_temperature_system_failure.csv'
 #pwd = './results/'+detectorName+'/realKnownCause/'+detectorName+'_ambient_temperature_system_failure.csv'
+pwd = './results/'+detectorName+'/realKnownCause/'+detectorName+'_cpu_utilization_asg_misconfiguration.csv'
+pwd = './results/'+detectorName+'/realKnownCause/'+detectorName+'_ec2_request_latency_system_failure.csv'
+pwd = './results/'+detectorName+'/realTweets/'+detectorName+'_Twitter_volume_KO.csv'
+pwd = './results/'+detectorName+'/realAdExchange/'+detectorName+'_exchange-2_cpm_results.csv'
 #pwd = './results/'+detectorName+'/artificialWithAnomaly/'+detectorName+'_art_daily_jumpsup.csv'
 #pwd = './results/'+detectorName+'/artificialWithAnomaly/'+detectorName+'_art_daily_flatmiddle.csv'
 #pwd = './results/'+detectorName+'/artificialNoAnomaly/'+detectorName+'_art_daily_perfect_square_wave.csv'
@@ -18,6 +25,7 @@ if anotherPredValue:
     times = []
     values = []
     anomaly_scores = []
+
     predValues1 = []
     predValues2 = []
     labels = []
@@ -36,12 +44,23 @@ if anotherPredValue:
 
     plt.figure()
     plt.subplot(2, 1, 1)
-    plt.plot(values, '.r')
-    plt.plot(predValues1, '.b')
-    plt.plot(predValues2, '.g')
+    plt.plot(values, '.r',label='values')
+    plt.plot(predValues1, '.b',label='predictions')
+    #plt.plot(predValues2, '.g')
+    plt.legend()
+    plt.xlabel('time')
+    plt.ylabel('value')
     plt.subplot(2, 1, 2)
-    plt.plot(labels, '.r')
-    plt.plot(anomaly_scores, 'b')
+    plt.plot(labels, '.r',label='labels')
+
+    for i in range(500):
+        anomaly_scores[i]=0
+    plt.plot(anomaly_scores, 'b',label='anomaly likelihood')
+    threshold = [0.6] * len(anomaly_scores)
+    plt.plot(threshold,'black',label='threshold')
+    plt.xlabel('time')
+    plt.ylabel('anomaly likelihood')
+    plt.legend()
     plt.show()
 else:
 
@@ -68,4 +87,13 @@ else:
     plt.subplot(2,1,2)
     plt.plot(labels,'.r')
     plt.plot(anomaly_scores,'b')
+    #plt.xlim([0,1])
     plt.show()
+
+import numpy as np
+
+m = np.mean(values)
+std= np.std(values)
+nValues = (values -m)/std
+print np.mean(nValues)
+print np.var(nValues,ddof=0)
